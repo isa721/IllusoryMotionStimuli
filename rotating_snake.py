@@ -2,11 +2,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-def adjust_luminance(color, luminance_factor):
+def adjust_luminance_rgb(color, luminance_factor):
     """
-    Adjust the luminance of an RGB color by multiplying each component with the luminance factor.
+    Adjust the luminance of an RGB color by scaling the color while maintaining its hue.
+    The scaling is based on the luminance formula.
     """
-    return tuple(c * luminance_factor for c in color)
+    # Calculate the current luminance of the color
+    R, G, B = color
+    current_luminance = 0.2126 * R + 0.7152 * G + 0.0722 * B
+
+    # If the current luminance is zero (black), avoid division by zero
+    if current_luminance == 0:
+        return color  
+
+    # If the current luminance is one (white), no need to scale
+    if current_luminance == 1:
+        return color  
+
+    scaling_factor = luminance_factor / current_luminance
+
+    # Scale the RGB values
+    return tuple(np.clip(c * scaling_factor, 0, 1) for c in color)
 
 def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2, 
                             bg_luminance=50, max_lum_cd_m2=100, image_size=(800, 800), 
@@ -87,11 +103,11 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
                 color_sequence.append(color_mappings["grayscale"][1/3])
             else:
                 # Custom luminance scaling for any other values
-                color_sequence.append(adjust_luminance((0.5, 0.5, 0.5), level))  # Example custom scaling
+                color_sequence.append(adjust_luminance_rgb((0.5, 0.5, 0.5), level))  # Example custom scaling
         else:
             # For blue-yellow or red-green, apply luminance scaling
             base_color = color_mappings[color_mode][level]
-            scaled_color = adjust_luminance(base_color, level)  # Scaling RGB values by luminance factor
+            scaled_color = adjust_luminance_rgb(base_color, level)  # Scaling RGB values by luminance factor
             color_sequence.append(scaled_color)
 
     # Set default element order if none is provided
