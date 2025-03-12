@@ -9,12 +9,11 @@ def scale_luminance(rgb, luminance_target, max_luminance=100):
     """
     # If the color is white, return it as is to ensure it stays at full luminance
     if np.allclose(rgb, [1, 1, 1]):
-        return rgb  # White should remain white (scaled to 70 cd/m² as per your requirement)
+        return rgb  
     
     # Calculate current luminance
     current_luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
     
-    # Prevent division by zero for black color (current_luminance = 0)
     if current_luminance == 0:
         return rgb  # No scaling needed for black (0 luminance)
     
@@ -46,10 +45,10 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
 
     # Normalize element luminances
     default_luminance = {
-        "white": 70 / max_lum_cd_m2,   # White should remain at max luminance (70 cd/m²)
+        "white": 70 / max_lum_cd_m2,   
         "light_gray": 40 / max_lum_cd_m2,
         "dark_gray": 30 / max_lum_cd_m2,
-        "black": 1e-3 / max_lum_cd_m2  # Black set to less than 1 cd/m² as per your description
+        "black": 1 / max_lum_cd_m2  
     }
 
     if luminance_values:
