@@ -7,6 +7,10 @@ def scale_luminance(rgb, luminance_target, max_luminance=100):
     Scales the RGB values to match the target luminance using the formula:
     L = 0.299R + 0.587G + 0.114B
     """
+    # If the color is white, return it as is to ensure it stays at full luminance
+    if np.allclose(rgb, [1, 1, 1]):
+        return rgb  # White should remain white (scaled to 70 cd/m² as per your requirement)
+    
     # Calculate current luminance
     current_luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
     
@@ -42,10 +46,10 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
 
     # Normalize element luminances
     default_luminance = {
-        "white": 70 / max_lum_cd_m2,
+        "white": 70 / max_lum_cd_m2,   # White should remain at max luminance (70 cd/m²)
         "light_gray": 40 / max_lum_cd_m2,
         "dark_gray": 30 / max_lum_cd_m2,
-        "black": 0 / max_lum_cd_m2
+        "black": 1e-3 / max_lum_cd_m2  # Black set to less than 1 cd/m² as per your description
     }
 
     if luminance_values:
@@ -53,7 +57,7 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
 
     # Define RGB values for each color
     color_map = {
-        "white": [1, 1, 1],
+        "white": [1, 1, 1],  # White color stays white, with luminance 70 cd/m²
         "light_gray": [0.6, 0.6, 0.6],
         "dark_gray": [0.3, 0.3, 0.3],
         "black": [0, 0, 0],
@@ -63,9 +67,9 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
         "green": [0, 255 / 255, 0]
     }
 
-    # Apply custom luminance scaling to colors
+    # Apply custom luminance scaling to colors (except white)
     for color, luminance in default_luminance.items():
-        if color in color_map:
+        if color in color_map and color != "white":  # Don't scale white
             color_map[color] = scale_luminance(color_map[color], luminance)
 
     # Set default element order if none is provided
@@ -77,7 +81,7 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
         else:  # Default grayscale
             element_order = ["black", "dark_gray", "white", "light_gray"]
 
-    # Reverse order for clockwise
+    # Reverse order for clockwise rotation
     if rotation_direction == "clockwise":
         element_order = element_order[::-1]
 
@@ -106,7 +110,7 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
             theta2 = (i + 1) * angle_step
 
             wedge = patches.Wedge(
-                (0, 0), outer_radius, theta1, theta2, width=1/num_rings, color=color
+                (0, 0), outer_radius, theta1, theta2, width=1 / num_rings, color=color
             )
             ax.add_patch(wedge)
 
