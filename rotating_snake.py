@@ -2,30 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-def scale_luminance(rgb, luminance_target, max_luminance=100):
+def adjust_luminance(color, luminance_factor):
     """
-    Scales the RGB values to match the target luminance using the formula:
-    L = 0.299R + 0.587G + 0.114B
+    Adjust the luminance of an RGB color by multiplying each component with the luminance factor.
     """
-    # If the color is white, return it as is to ensure it stays at full luminance
-    if np.allclose(rgb, [1, 1, 1]):
-        return rgb  
-    
-    # Calculate current luminance
-    current_luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
-    
-    if current_luminance == 0:
-        return rgb  # No scaling needed for black (0 luminance)
-    
-    # Scale factor to match target luminance
-    scale_factor = luminance_target / current_luminance
-    return np.clip(np.array(rgb) * scale_factor, 0, 1)
+    return tuple(c * luminance_factor for c in color)
 
 def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2, 
                             bg_luminance=50, max_lum_cd_m2=100, image_size=(800, 800), 
                             color_mode="grayscale", element_order=None, luminance_values=None,
                             rotation_direction="counter_clockwise", save_path="rotating_snake.png"):
     """
+    Generates a customizable rotating snake illusion.
+
     Parameters:
     - num_rings: Number of concentric rings.
     - num_repeats: Number of times the pattern repeats around the ring.
@@ -35,7 +24,7 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
     - image_size: (width, height) in pixels.
     - color_mode: "grayscale", "blue_yellow", or "red_green".
     - element_order: List specifying the order of colors (overrides color_mode default).
-    - luminance_values: Dict mapping colors to custom luminance levels.
+    - luminance_values: List of custom luminance levels for colors.
     - rotation_direction: "counter_clockwise" (default) or "clockwise".
     - save_path: File path to save the generated PNG image.
     """
@@ -43,47 +32,77 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
     # Normalize background luminance
     bg_luminance_norm = np.clip(bg_luminance / max_lum_cd_m2, 0, 1)
 
-    # Normalize element luminances
-    default_luminance = {
-        "white": 70 / max_lum_cd_m2,   
-        "light_gray": 40 / max_lum_cd_m2,
-        "dark_gray": 30 / max_lum_cd_m2,
-        "black": 1 / max_lum_cd_m2  
+    # Define base RGB colors for blue-yellow and red-green modes
+    custom_colors = {
+        "blue": (15.3 / 255, 16.575 / 255, 1),  # Matches dark gray luminance
+        "yellow": (183.6 / 255, 188.7 / 255, 0),  # Matches light gray luminance
+        "red": (216.75 / 255, 0, 0),  # Matches dark gray luminance
+        "green": (0, 1, 0)  # Matches light gray luminance
     }
 
-    if luminance_values:
-        default_luminance.update({k: v / max_lum_cd_m2 for k, v in luminance_values.items()})
+    # Default luminance levels (used if no custom values provided)
+    default_luminance_levels = [1, 2/3, 0, 1/3]
 
-    # Define RGB values for each color
-    color_map = {
-        "white": [1, 1, 1],  # White color stays white, with luminance 70 cd/m²
-        "light_gray": [0.6, 0.6, 0.6],
-        "dark_gray": [0.3, 0.3, 0.3],
-        "black": [0, 0, 0],
-        "blue": [15.3 / 255, 16.575 / 255, 255 / 255],
-        "yellow": [183.6 / 255, 188.7 / 255, 0],
-        "red": [216.75 / 255, 0, 0],
-        "green": [0, 255 / 255, 0]
+    # Use user-specified luminance values if provided
+    luminance_levels = luminance_values if luminance_values else default_luminance_levels
+
+    # Color mappings for grayscale and color modes
+    color_mappings = {
+        "grayscale": {
+            1: (1, 1, 1),  # White
+            2/3: (0.8, 0.8, 0.8),  # Light gray
+            0: (0, 0, 0),  # Black
+            1/3: (0.33, 0.33, 0.33)  # Dim gray
+        },
+        "blue_yellow": {
+            1: (1, 1, 1),  # White
+            2/3: custom_colors["yellow"],  # Yellow mapped to light gray luminance
+            0: (0, 0, 0),  # Black
+            1/3: custom_colors["blue"]  # Blue mapped to dark gray luminance
+        },
+        "red_green": {
+            1: (1, 1, 1),  # White
+            2/3: custom_colors["green"],  # Green mapped to light gray luminance
+            0: (0, 0, 0),  # Black
+            1/3: custom_colors["red"]  # Red mapped to dark gray luminance
+        }
     }
 
-    # Apply custom luminance scaling to colors (except white)
-    for color, luminance in default_luminance.items():
-        if color in color_map and color != "white":  # Don't scale white
-            color_map[color] = scale_luminance(color_map[color], luminance)
+    # Check if color_mode is valid
+    if color_mode not in color_mappings:
+        raise ValueError(f"Invalid color mode: {color_mode}. Choose from {list(color_mappings.keys())}")
+
+    # Map luminance levels to colors with scaling for color modes
+    color_sequence = []
+    for level in luminance_levels:
+        if color_mode == "grayscale":
+            # For grayscale, we directly adjust luminance by scaling RGB values
+            if level == 1:
+                color_sequence.append(color_mappings["grayscale"][1])
+            elif level == 2/3:
+                color_sequence.append(color_mappings["grayscale"][2/3])
+            elif level == 0:
+                color_sequence.append(color_mappings["grayscale"][0])
+            elif level == 1/3:
+                color_sequence.append(color_mappings["grayscale"][1/3])
+            else:
+                # Custom luminance scaling for any other values
+                color_sequence.append(adjust_luminance((0.5, 0.5, 0.5), level))  # Example custom scaling
+        else:
+            # For blue-yellow or red-green, apply luminance scaling
+            base_color = color_mappings[color_mode][level]
+            scaled_color = adjust_luminance(base_color, level)  # Scaling RGB values by luminance factor
+            color_sequence.append(scaled_color)
 
     # Set default element order if none is provided
     if element_order is None:
-        if color_mode == "blue_yellow":
-            element_order = ["black", "blue", "white", "yellow"]
-        elif color_mode == "red_green":
-            element_order = ["black", "red", "white", "green"]
-        else:  # Default grayscale
-            element_order = ["black", "dark_gray", "white", "light_gray"]
+        element_order = color_sequence
 
     # Reverse order for clockwise rotation
     if rotation_direction == "clockwise":
         element_order = element_order[::-1]
 
+    # Create figure
     fig, ax = plt.subplots(figsize=(image_size[0] / 100, image_size[1] / 100), dpi=100)
     ax.set_xlim(-1, 1)
     ax.set_ylim(-1, 1)
@@ -98,13 +117,13 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
         inner_radius = ring / num_rings
         outer_radius = (ring + 1) / num_rings
 
-        # Shift the sequence per ring
+        # Shift sequence per ring
         shifted_sequence = element_order[ring * shift_per_ring % len(element_order):] + \
                            element_order[:ring * shift_per_ring % len(element_order)]
 
         # Create wedges
         for i in range(num_segments):
-            color = color_map[shifted_sequence[i % len(shifted_sequence)]]
+            color = shifted_sequence[i % len(shifted_sequence)]
             theta1 = i * angle_step
             theta2 = (i + 1) * angle_step
 
