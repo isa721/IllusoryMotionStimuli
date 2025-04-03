@@ -2,152 +2,127 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-def adjust_luminance_rgb(color, luminance_factor):
-    """
-    Adjust the luminance of an RGB color by scaling the color while maintaining its hue.
-    The scaling is based on the luminance formula.
-    """
-    # Calculate the current luminance of the color
-    R, G, B = color
-    current_luminance = 0.2126 * R + 0.7152 * G + 0.0722 * B
-
-    # If the current luminance is zero (black), avoid division by zero
-    if current_luminance == 0:
-        return color  
-
-    # If the current luminance is one (white), no need to scale
-    if current_luminance == 1:
-        return color  
-
-    scaling_factor = luminance_factor / current_luminance
-
-    # Scale the RGB values
-    return tuple(np.clip(c * scaling_factor, 0, 1) for c in color)
-
 def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2, 
-                            bg_luminance=50, max_lum_cd_m2=100, image_size=(800, 800), 
+                            max_lum_cd_m2=100, image_size=(800, 800), 
                             color_mode="grayscale", element_order=None, luminance_values=None,
-                            rotation_direction="counter_clockwise", save_path="rotating_snake.png"):
+                            rotation_direction="counter_clockwise", save_path="rotating_snake.png",
+                            min_inner_radius=0.00005):
     """
-    Generates a customizable rotating snake illusion.
-
+    Generates a customizable rotating snake illusion without a background.
+    
     Parameters:
-    - num_rings: Number of concentric rings.
-    - num_repeats: Number of times the pattern repeats around the ring.
-    - shift_per_ring: Phase shift per ring (shifts color sequence).
-    - bg_luminance: Background luminance in cd/m².
-    - max_lum_cd_m2: Maximum luminance of display in cd/m² (for normalization).
-    - image_size: (width, height) in pixels.
-    - color_mode: "grayscale", "blue_yellow", or "red_green".
-    - element_order: List specifying the order of colors (overrides color_mode default).
-    - luminance_values: List of custom luminance levels for colors.
-    - rotation_direction: "counter_clockwise" (default) or "clockwise".
-    - save_path: File path to save the generated PNG image.
+    -----------
+    num_rings : int
+        Number of concentric rings in the pattern
+    num_repeats : int
+        Number of pattern repetitions around each ring
+    shift_per_ring : int
+        Number of elements to shift the pattern between consecutive rings
+    max_lum_cd_m2 : float
+        Maximum luminance in cd/m²
+    image_size : tuple
+        Size of the output image in pixels (width, height)
+    color_mode : str
+        Color scheme to use ("grayscale", "blue_yellow", or "red_green")
+    element_order : list
+        Custom ordering of elements (overrides default if provided)
+    luminance_values : list
+        Custom luminance values (overrides default if provided)
+    rotation_direction : str
+        Direction of apparent rotation ("clockwise" or "counter_clockwise")
+    save_path : str
+        Path to save the generated image
+    min_inner_radius : float
+        Minimum radius for the innermost circle (prevents center distortion)
     """
-
-    # Normalize background luminance
-    bg_luminance_norm = np.clip(bg_luminance / max_lum_cd_m2, 0, 1)
-
-    # Define base RGB colors for blue-yellow and red-green modes
     custom_colors = {
-        "blue": (15.3 / 255, 16.575 / 255, 1),  # Matches dark gray luminance
-        "yellow": (183.6 / 255, 188.7 / 255, 0),  # Matches light gray luminance
-        "red": (216.75 / 255, 0, 0),  # Matches dark gray luminance
-        "green": (0, 1, 0)  # Matches light gray luminance
+        "blue": (15.3 / 255, 16.575 / 255, 1),
+        "yellow": (183.6 / 255, 188.7 / 255, 0),
+        "red": (216.75 / 255, 0, 0),
+        "green": (0, 1, 0)
     }
 
-    # Default luminance levels (used if no custom values provided)
     default_luminance_levels = [1, 2/3, 0, 1/3]
-
-    # Use user-specified luminance values if provided
     luminance_levels = luminance_values if luminance_values else default_luminance_levels
 
-    # Color mappings for grayscale and color modes
     color_mappings = {
         "grayscale": {
-            1: (1, 1, 1),  # White
-            2/3: (0.8, 0.8, 0.8),  # Light gray
-            0: (0, 0, 0),  # Black
-            1/3: (0.33, 0.33, 0.33)  # Dim gray
+            1: (1, 1, 1),
+            2/3: (0.8, 0.8, 0.8),
+            0: (0, 0, 0),
+            1/3: (0.33, 0.33, 0.33)
         },
         "blue_yellow": {
-            1: (1, 1, 1),  # White
-            2/3: custom_colors["yellow"],  # Yellow mapped to light gray luminance
-            0: (0, 0, 0),  # Black
-            1/3: custom_colors["blue"]  # Blue mapped to dark gray luminance
+            1: (1, 1, 1),
+            2/3: custom_colors["yellow"],
+            0: (0, 0, 0),
+            1/3: custom_colors["blue"]
         },
         "red_green": {
-            1: (1, 1, 1),  # White
-            2/3: custom_colors["green"],  # Green mapped to light gray luminance
-            0: (0, 0, 0),  # Black
-            1/3: custom_colors["red"]  # Red mapped to dark gray luminance
+            1: (1, 1, 1),
+            2/3: custom_colors["green"],
+            0: (0, 0, 0),
+            1/3: custom_colors["red"]
         }
     }
 
-    # Check if color_mode is valid
     if color_mode not in color_mappings:
         raise ValueError(f"Invalid color mode: {color_mode}. Choose from {list(color_mappings.keys())}")
 
-    # Map luminance levels to colors with scaling for color modes
-    color_sequence = []
-    for level in luminance_levels:
-        if color_mode == "grayscale":
-            # For grayscale, we directly adjust luminance by scaling RGB values
-            if level == 1:
-                color_sequence.append(color_mappings["grayscale"][1])
-            elif level == 2/3:
-                color_sequence.append(color_mappings["grayscale"][2/3])
-            elif level == 0:
-                color_sequence.append(color_mappings["grayscale"][0])
-            elif level == 1/3:
-                color_sequence.append(color_mappings["grayscale"][1/3])
-            else:
-                # Custom luminance scaling for any other values
-                color_sequence.append(adjust_luminance_rgb((0.5, 0.5, 0.5), level))  # Example custom scaling
-        else:
-            # For blue-yellow or red-green, apply luminance scaling
-            base_color = color_mappings[color_mode][level]
-            scaled_color = adjust_luminance_rgb(base_color, level)  # Scaling RGB values by luminance factor
-            color_sequence.append(scaled_color)
+    color_sequence = [color_mappings[color_mode][level] for level in luminance_levels]
 
-    # Set default element order if none is provided
     if element_order is None:
         element_order = color_sequence
 
-    # Reverse order for clockwise rotation
     if rotation_direction == "clockwise":
         element_order = element_order[::-1]
 
-    # Create figure
-    fig, ax = plt.subplots(figsize=(image_size[0] / 100, image_size[1] / 100), dpi=100)
+    # Create figure with higher DPI for better resolution
+    fig, ax = plt.subplots(figsize=(image_size[0] / 100, image_size[1] / 100), dpi=300)
     ax.set_xlim(-1, 1)
     ax.set_ylim(-1, 1)
     ax.set_aspect("equal")
     ax.axis("off")
-    fig.patch.set_facecolor((bg_luminance_norm, bg_luminance_norm, bg_luminance_norm))
+    fig.patch.set_alpha(0)
+    
+    # Calculate ring radii - ensure proper spacing
+    ring_radii = np.linspace(min_inner_radius, 1.0, num_rings + 1)
 
-    # Loop through each ring
-    for ring in range(num_rings):
+    # Draw center circle if needed
+    if min_inner_radius > 0:
+        center_circle = patches.Circle((0, 0), min_inner_radius, color=(1, 1, 1))
+        ax.add_patch(center_circle)
+
+    # Draw rings from outer to inner
+    for ring_idx in range(num_rings):
+        outer_radius = ring_radii[ring_idx + 1]
+        inner_radius = ring_radii[ring_idx]
+        
+        # Calculate number of segments in this ring
         num_segments = len(element_order) * num_repeats
         angle_step = 360 / num_segments
-        inner_radius = ring / num_rings
-        outer_radius = (ring + 1) / num_rings
-
-        # Shift sequence per ring
-        shifted_sequence = element_order[ring * shift_per_ring % len(element_order):] + \
-                           element_order[:ring * shift_per_ring % len(element_order)]
-
-        # Create wedges
+        
+        # Calculate shift for this ring
+        ring_shift = (num_rings - ring_idx - 1) * shift_per_ring % len(element_order)
+        shifted_sequence = element_order[ring_shift:] + element_order[:ring_shift]
+        
+        # Draw segments
         for i in range(num_segments):
             color = shifted_sequence[i % len(shifted_sequence)]
             theta1 = i * angle_step
             theta2 = (i + 1) * angle_step
-
+            
+            # Use Wedge patch for consistent rendering
             wedge = patches.Wedge(
-                (0, 0), outer_radius, theta1, theta2, width=1 / num_rings, color=color
+                (0, 0), outer_radius, theta1, theta2, 
+                width=outer_radius - inner_radius, 
+                color=color,
+                linewidth=0
             )
             ax.add_patch(wedge)
 
-    # Save as PNG
-    plt.savefig(save_path, dpi=100, bbox_inches="tight", pad_inches=0)
+    # Save high-quality image
+    plt.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0, transparent=True)
     plt.close(fig)
+    
+    return save_path
