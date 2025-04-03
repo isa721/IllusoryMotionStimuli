@@ -126,3 +126,41 @@ def generate_rotating_snake(num_rings=6, num_repeats=24, shift_per_ring=2,
     plt.close(fig)
     
     return save_path
+                              
+def create_rotated_frames(img_path, base_name, output_dir, shift_pixels, num_frames, rotation_direction="counterclockwise"):
+    """
+    Create rotated frames of the image and save them to the specified directory.
+    
+    Args:
+        img_path: Path to the original image
+        base_name: Base name of the stimulus (without extension)
+        output_dir: Directory to save rotated frames
+        shift_pixels: Number of pixels to shift per frame
+        num_frames: Number of frames to generate
+        rotation_direction: "clockwise" or "counterclockwise"
+    """
+    # Load the image
+    img = Image.open(img_path)
+    width, height = img.size
+    center = (width // 2, height // 2)
+    
+    # Determine direction multiplier
+    direction_multiplier = 1 if rotation_direction == "counterclockwise" else -1
+    
+    # Create and save each rotated frame
+    for frame in range(num_frames):
+        # Calculate rotation angle based on pixel shift
+        radius = min(width, height) / 2
+        circumference = 2 * np.pi * radius
+        angle = direction_multiplier * (frame * shift_pixels / circumference) * 360
+        
+        # Rotate the image
+        rotated_img = img.rotate(angle, center=center, resample=Image.BICUBIC)
+        
+        # Define output path with proper folder structure
+        frame_output_dir = os.path.join(output_dir, f"{shift_pixels}_px", base_name)
+        os.makedirs(frame_output_dir, exist_ok=True)
+        
+        output_path = os.path.join(frame_output_dir, f"frame_{frame+1}.png")
+        rotated_img.save(output_path)
+        print(f"Saved: {output_path}")
